@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    * {
+        @apply border-slate-200;
+    }
+
+    body {
+        @apply bg-white text-slate-900 font-sans antialiased;
+    }
+
+    /* Smooth scrolling */
+    html {
+        scroll-behavior: smooth;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+        @apply bg-slate-100;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        @apply bg-slate-300 rounded-full;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        @apply bg-slate-400;
+    }
+}
+
+@layer components {
+
+    /* Card component */
+    .card {
+        @apply bg-white rounded-xl border border-slate-200 shadow-sm transition-shadow duration-200;
+    }
+
+    .card-hover {
+        @apply hover:shadow-md;
+    }
+
+    /* Button base */
+    .btn {
+        @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    }
+
+    .btn-primary {
+        @apply bg-sky-500 text-white hover:bg-sky-600 focus:ring-sky-500;
+    }
+
+    .btn-secondary {
+        @apply bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-500;
+    }
+
+    /* Input base */
+    .input {
+        @apply w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all duration-200;
+    }
+
+    /* Badge */
+    .badge {
+        @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ring-1 ring-inset;
+    }
+
+    /* Table */
+    .table {
+        @apply w-full text-left text-sm;
+    }
+
+    .table thead {
+        @apply bg-slate-50 text-xs uppercase tracking-wider text-slate-600 font-semibold;
+    }
+
+    .table th {
+        @apply px-6 py-4;
+    }
+
+    .table td {
+        @apply px-6 py-4;
+    }
+
+    .table tbody {
+        @apply divide-y divide-slate-100;
+    }
+
+    .table tbody tr {
+        @apply hover:bg-slate-50 transition-colors duration-150;
+    }
+}
+
+@layer utilities {
+
+    /* Animation utilities */
+    .animate-in {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .animate-slide-up {
+        animation: slideUp 0.3s ease-out;
+    }
+
+    /* Text utilities */
+    .text-balance {
+        text-wrap: balance;
+    }
+
+    /* Gradient text */
+    .gradient-text {
+        @apply bg-gradient-to-r from-sky-500 to-sky-400 bg-clip-text text-transparent;
+    }
+}
