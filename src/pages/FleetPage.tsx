@@ -1,25 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShipList } from '../components/ships/ShipList';
 import { AddShipModal } from '../components/ships/AddShipModal';
-import { fleetData } from '../services/mockData';
-import { Ship } from '../types';
-import { Plus, Ship as ShipIcon } from 'lucide-react';
+import { shipService } from '../services/shipService';
+import { Ship } from '../types/models';
+import { Plus, Ship as ShipIcon, Loader2 } from 'lucide-react';
 
 export function FleetPage() {
-    const [ships, setShips] = useState<Ship[]>(fleetData);
+    const [ships, setShips] = useState<Ship[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const handleAddShip = (newShipData: Omit<Ship, 'id'>) => {
-        const newShip: Ship = {
-            ...newShipData,
-            id: Math.random().toString(36).substr(2, 9), // Simple ID generation
-        };
-        setShips([...ships, newShip]);
+    useEffect(() => {
+        loadShips();
+    }, []);
+
+    const loadShips = async () => {
+        try {
+            setIsLoading(true);
+            const data = await shipService.getAllShips();
+            setShips(data);
+        } catch (error) {
+            console.error('Failed to load ships:', error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const handleDeleteShip = (id: string) => {
+    const handleAddShip = async (newShipData: Omit<Ship, 'id'>) => {
+        try {
+            const addedShip = await shipService.addShip(newShipData);
+            setShips(prev => [addedShip, ...prev]);
+            // If using Supabase, it returns the real object.
+            // If using mock, it returns a mock object.
+        } catch (error: any) {
+            console.error('Failed to add ship:', error);
+            alert(`Failed to add ship. Error: ${error.message || JSON.stringify(error)}`);
+        }
+    };
+
+    const handleDeleteShip = async (id: string) => {
         if (window.confirm('Are you sure you want to delete this vessel?')) {
-            setShips(ships.filter(ship => ship.id !== id));
+            try {
+                await shipService.deleteShip(id);
+                setShips(prev => prev.filter(ship => ship.id !== id));
+            } catch (error) {
+                console.error('Failed to delete ship:', error);
+                alert('Failed to delete ship. Please try again.');
+            }
         }
     };
 
@@ -39,7 +66,11 @@ export function FleetPage() {
                 </button>
             </div>
 
-            {ships.length === 0 ? (
+            {isLoading ? (
+                <div className="flex justify-center items-center py-20">
+                    <Loader2 className="h-10 w-10 text-accent animate-spin" />
+                </div>
+            ) : ships.length === 0 ? (
                 <div className="text-center py-12 bg-white rounded-xl border border-slate-200 border-dashed">
                     <div className="mx-auto h-12 w-12 text-slate-300 mb-4">
                         <ShipIcon className="h-full w-full" />

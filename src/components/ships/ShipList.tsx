@@ -1,5 +1,5 @@
 import React from 'react';
-import { Ship } from '../../types';
+import { Ship } from '../../types/models';
 import { MoreHorizontal, Trash2, MapPin, Anchor } from 'lucide-react';
 
 interface ShipListProps {
@@ -36,9 +36,11 @@ export function ShipList({ ships, onDelete }: ShipListProps) {
                     <div className="space-y-3">
                         <div className="flex items-center justify-between text-sm">
                             <span className="text-slate-500">Status</span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${ship.status === 'Laden' ? 'bg-emerald-50 text-emerald-700' :
-                                    ship.status === 'Ballast' ? 'bg-blue-50 text-blue-700' :
-                                        'bg-slate-100 text-slate-700'
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${ship.status === 'In Transit' ? 'bg-blue-50 text-blue-700' :
+                                    ship.status === 'Loading' ? 'bg-amber-50 text-amber-700' :
+                                        ship.status === 'Discharging' ? 'bg-orange-50 text-orange-700' :
+                                            ship.status === 'Waiting' ? 'bg-slate-100 text-slate-700' :
+                                                'bg-slate-100 text-slate-700'
                                 }`}>
                                 {ship.status}
                             </span>
@@ -51,7 +53,7 @@ export function ShipList({ ships, onDelete }: ShipListProps) {
                         </div>
                         <div className="flex items-center justify-between text-sm">
                             <span className="text-slate-500">Cargo</span>
-                            <span className="font-medium text-slate-900">{ship.cargo}</span>
+                            <span className="font-medium text-slate-900">{ship.cargo || 'N/A'}</span>
                         </div>
                     </div>
                 </div>

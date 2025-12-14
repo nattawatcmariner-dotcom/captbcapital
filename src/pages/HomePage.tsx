@@ -1,32 +1,29 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { KPIStats } from '../components/dashboard/KPIStats';
 import { ShipMap } from '../components/dashboard/ShipMap';
 import { AlertTriangle, Info, Clock } from 'lucide-react';
+import { fetchAlerts, Alert } from '../services/api';
 
 export function HomePage() {
-    const alerts = [
-        {
-            title: 'Demurrage Warning',
-            desc: 'MT Ocean Queen at Ningbo',
-            time: '2h ago',
-            type: 'warning',
-            icon: AlertTriangle
-        },
-        {
-            title: 'New Fixture',
-            desc: 'MT Pacific Star - Ras Tanura',
-            time: '5h ago',
-            type: 'info',
-            icon: Info
-        },
-        {
-            title: 'ETA Update',
-            desc: 'MT Atlantic Rose delayed 12h',
-            time: '1d ago',
-            type: 'alert',
-            icon: Clock
-        },
-    ];
+    const [alerts, setAlerts] = useState<any[]>([]);
+
+    useEffect(() => {
+        const loadAlerts = async () => {
+            try {
+                const data = await fetchAlerts();
+                const formattedAlerts = data.map(alert => ({
+                    ...alert,
+                    desc: alert.description, // Map description to desc
+                    time: new Date(alert.created_at).toLocaleDateString(), // Simple date formatting
+                    icon: alert.type === 'warning' ? AlertTriangle : alert.type === 'alert' ? Clock : Info
+                }));
+                setAlerts(formattedAlerts);
+            } catch (error) {
+                console.error("Failed to load alerts", error);
+            }
+        };
+        loadAlerts();
+    }, []);
 
     const getAlertColor = (type: string) => {
         switch (type) {
@@ -76,25 +73,29 @@ export function HomePage() {
                 <div className="card p-6">
                     <h3 className="mb-6 text-lg font-semibold text-slate-900">Recent Alerts</h3>
                     <div className="space-y-4">
-                        {alerts.map((alert, i) => {
-                            const Icon = alert.icon;
-                            return (
-                                <div
-                                    key={i}
-                                    className={`flex items-start gap-3 rounded-lg border p-4 transition-all duration-200 hover:shadow-md ${getAlertColor(alert.type)}`}
-                                    style={{ animationDelay: `${i * 100}ms` }}
-                                >
-                                    <div className={`mt-0.5 rounded-lg bg-white p-2 ${getIconColor(alert.type)}`}>
-                                        <Icon className="h-4 w-4" />
+                        {alerts.length === 0 ? (
+                            <p className="text-slate-500 text-sm">No recent alerts</p>
+                        ) : (
+                            alerts.map((alert, i) => {
+                                const Icon = alert.icon;
+                                return (
+                                    <div
+                                        key={alert.id || i}
+                                        className={`flex items-start gap-3 rounded-lg border p-4 transition-all duration-200 hover:shadow-md ${getAlertColor(alert.type)}`}
+                                        style={{ animationDelay: `${i * 100}ms` }}
+                                    >
+                                        <div className={`mt-0.5 rounded-lg bg-white p-2 ${getIconColor(alert.type)}`}>
+                                            <Icon className="h-4 w-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-slate-900">{alert.title}</p>
+                                            <p className="mt-1 text-sm text-slate-600">{alert.desc}</p>
+                                            <p className="mt-2 text-xs text-slate-500">{alert.time}</p>
+                                        </div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-slate-900">{alert.title}</p>
-                                        <p className="mt-1 text-sm text-slate-600">{alert.desc}</p>
-                                        <p className="mt-2 text-xs text-slate-500">{alert.time}</p>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })
+                        )}
                     </div>
                 </div>
             </div>

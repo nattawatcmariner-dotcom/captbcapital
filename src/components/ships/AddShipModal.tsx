@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { X, Upload, FileText, Check, Loader2 } from 'lucide-react';
-import { Ship } from '../../types';
+import { X, Upload, Check, Loader2 } from 'lucide-react';
+import { Ship, ShipStatus } from '../../types/models';
 
 interface AddShipModalProps {
     isOpen: boolean;
@@ -14,16 +14,16 @@ export function AddShipModal({ isOpen, onClose, onAdd }: AddShipModalProps) {
     const [uploadSuccess, setUploadSuccess] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<Omit<Ship, 'id'>>({
         name: '',
         type: 'VLCC',
-        status: 'Ballast',
-        lat: 0,
-        lng: 0,
+        status: 'Waiting', // Default status from new model
+        location: '',
         destination: '',
         eta: '',
+        speed: 0,
         cargo: 'N/A',
-        qty: 'N/A',
+        charterer: 'Spot'
     });
 
     if (!isOpen) return null;
@@ -61,7 +61,8 @@ export function AddShipModal({ isOpen, onClose, onAdd }: AddShipModalProps) {
                 ...prev,
                 name: file.name.split('.')[0].replace(/_/g, ' '),
                 type: 'Aframax', // Mock extracted data
-                qty: '110,000 MT'
+                cargo: 'Crude Oil',
+                location: 'Generic Port',
             }));
             setIsProcessing(false);
             setUploadSuccess(true);
@@ -165,14 +166,14 @@ export function AddShipModal({ isOpen, onClose, onAdd }: AddShipModalProps) {
                             <label className="text-sm font-medium text-slate-700">Status</label>
                             <select
                                 value={formData.status}
-                                onChange={e => setFormData({ ...formData, status: e.target.value })}
+                                onChange={e => setFormData({ ...formData, status: e.target.value as ShipStatus })}
                                 className="w-full rounded-lg border-slate-200 focus:border-accent focus:ring-accent"
                             >
-                                <option value="Ballast">Ballast</option>
-                                <option value="Laden">Laden</option>
-                                <option value="Discharging">Discharging</option>
-                                <option value="Loading">Loading</option>
                                 <option value="Waiting">Waiting</option>
+                                <option value="In Transit">In Transit</option>
+                                <option value="Loading">Loading</option>
+                                <option value="Discharging">Discharging</option>
+                                <option value="Dry Dock">Dry Dock</option>
                             </select>
                         </div>
                         <div className="space-y-2">
@@ -183,6 +184,26 @@ export function AddShipModal({ isOpen, onClose, onAdd }: AddShipModalProps) {
                                 onChange={e => setFormData({ ...formData, destination: e.target.value })}
                                 className="w-full rounded-lg border-slate-200 focus:border-accent focus:ring-accent"
                                 placeholder="e.g. Singapore"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Location</label>
+                            <input
+                                type="text"
+                                value={formData.location}
+                                onChange={e => setFormData({ ...formData, location: e.target.value })}
+                                className="w-full rounded-lg border-slate-200 focus:border-accent focus:ring-accent"
+                                placeholder="e.g. Indian Ocean"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Cargo</label>
+                            <input
+                                type="text"
+                                value={formData.cargo || ''}
+                                onChange={e => setFormData({ ...formData, cargo: e.target.value })}
+                                className="w-full rounded-lg border-slate-200 focus:border-accent focus:ring-accent"
+                                placeholder="e.g. Crude Oil"
                             />
                         </div>
                     </form>

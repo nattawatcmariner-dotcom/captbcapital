@@ -14,6 +14,7 @@ const mockShips: Ship[] = [
 export const shipService = {
     getAllShips: async (): Promise<Ship[]> => {
         if (isSupabaseConfigured()) {
+            console.log('Fetching ships from Supabase...');
             const { data, error } = await supabase!.from('ships').select('*').order('created_at', { ascending: false });
             if (error) throw error;
             return data as Ship[];
@@ -53,6 +54,7 @@ export const shipService = {
 
     addShip: async (ship: Omit<Ship, 'id'>): Promise<Ship> => {
         if (isSupabaseConfigured()) {
+            console.log('Adding ship to Supabase...');
             const { data, error } = await supabase!.from('ships').insert(ship).select().single();
             if (error) throw error;
             return data as Ship;
