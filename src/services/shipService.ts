@@ -2,6 +2,25 @@ import { Ship } from '../types/models';
 import { delay } from './api';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
+const TIMEOUT_MS = 5000;
+
+const fetchWithTimeout = async <T>(promise: Promise<{ data: T | null, error: any }>): Promise<T> => {
+    let timeoutId: NodeJS.Timeout;
+    const timeoutPromise = new Promise<{ data: T | null, error: any }>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Request timed out')), TIMEOUT_MS);
+    });
+
+    try {
+        const { data, error } = await Promise.race([promise, timeoutPromise]);
+        clearTimeout(timeoutId!);
+        if (error) throw error;
+        return data as T;
+    } catch (error) {
+        clearTimeout(timeoutId!);
+        throw error;
+    }
+};
+
 // Mock Data (Fallback)
 const mockShips: Ship[] = [
     { id: '1', name: 'MT OCEAN QUEEN', type: 'VLCC', status: 'In Transit', location: 'Indian Ocean', destination: 'Ningbo, CN', eta: '2025-12-15', speed: 12.5, cargo: 'Crude Oil', charterer: 'Unipec' },
@@ -15,9 +34,16 @@ export const shipService = {
     getAllShips: async (): Promise<Ship[]> => {
         if (isSupabaseConfigured()) {
             console.log('Fetching ships from Supabase...');
-            const { data, error } = await supabase!.from('ships').select('*').order('created_at', { ascending: false });
-            if (error) throw error;
-            return data as Ship[];
+            try {
+                // Try fetching with 5s timeout
+                return await fetchWithTimeout(
+                    supabase!.from('ships').select('*').order('created_at', { ascending: false })
+                );
+            } catch (error) {
+                console.warn('Supabase fetch failed or timed out, falling back to mock data:', error);
+                // Fallback to mock data on error/timeout to prevent UI hang
+                return [...mockShips];
+            }
         }
 
         await delay(800); // Simulate network latency
@@ -53,11 +79,19 @@ export const shipService = {
     },
 
     addShip: async (ship: Omit<Ship, 'id'>): Promise<Ship> => {
+        // Try Supabase first if configured
         if (isSupabaseConfigured()) {
-            console.log('Adding ship to Supabase...');
-            const { data, error } = await supabase!.from('ships').insert(ship).select().single();
-            if (error) throw error;
-            return data as Ship;
+            try {
+                console.log('Adding ship to Supabase...');
+                // Wrap insert in timeout
+                const result = await fetchWithTimeout(
+                    supabase!.from('ships').insert(ship).select().single()
+                );
+                return result as Ship;
+            } catch (error) {
+                console.warn('Supabase write failed/timed out. Falling back to local mode.', error);
+                // Fallback continues below...
+            }
         }
 
         await delay(800);
@@ -66,11 +100,40 @@ export const shipService = {
         return newShip;
     },
 
+    updateShip: async (id: string, updates: Partial<Ship>): Promise<Ship> => {
+        if (isSupabaseConfigured()) {
+            try {
+                console.log('Updating ship in Supabase...');
+                const result = await fetchWithTimeout(
+                    supabase!.from('ships').update(updates).eq('id', id).select().single()
+                );
+                return result as Ship;
+            } catch (error) {
+                console.warn('Supabase update failed. Falling back to local mode.', error);
+            }
+        }
+
+        await delay(500);
+        const index = mockShips.findIndex(s => s.id === id);
+        if (index !== -1) {
+            mockShips[index] = { ...mockShips[index], ...updates };
+            return mockShips[index];
+        }
+        throw new Error('Ship not found');
+    },
+
     deleteShip: async (id: string): Promise<void> => {
         if (isSupabaseConfigured()) {
-            const { error } = await supabase!.from('ships').delete().eq('id', id);
-            if (error) throw error;
-            return;
+            try {
+                // Wrap delete in timeout to prevent hang
+                await fetchWithTimeout(
+                    supabase!.from('ships').delete().eq('id', id)
+                );
+                return;
+            } catch (error) {
+                console.warn('Supabase delete failed. Falling back to local mode.', error);
+                // Fallback continues below...
+            }
         }
 
         await delay(500);

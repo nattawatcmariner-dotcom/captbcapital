@@ -35,8 +35,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (!supabase) {
+            console.warn('Supabase client not initialized in AuthProvider');
+            setLoading(false);
+            return;
+        }
+
         // 1. Get initial session
-        supabase?.auth.getSession().then(({ data: { session } }) => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
             setUser(session?.user ?? null);
             if (session?.user) {
@@ -44,10 +50,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else {
                 setLoading(false);
             }
+        }).catch(err => {
+            console.error('Error checking session:', err);
+            setLoading(false);
         });
 
         // 2. Listen for auth changes
-        const { data: { subscription } } = supabase!.auth.onAuthStateChange(async (_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             setSession(session);
             setUser(session?.user ?? null);
 
@@ -59,7 +68,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         });
 
-        return () => subscription.unsubscribe();
+        // 3. Failsafe timeout
+        const timer = setTimeout(() => {
+            setLoading(current => {
+                if (current) {
+                    console.warn('Auth loading timed out (5s), forcing completion');
+                    return false;
+                }
+                return current;
+            });
+        }, 5000);
+
+        return () => {
+            subscription.unsubscribe();
+            clearTimeout(timer);
+        };
     }, []);
 
     const fetchProfile = async (userId: string) => {

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Anchor, Calculator, FileText, BarChart3, Ship, ClipboardCheck, ChevronDown, ChevronRight, Circle } from 'lucide-react';
+import { NavLink, useLocation, Link } from 'react-router-dom';
+import { LayoutDashboard, Anchor, Calculator, FileText, BarChart3, Ship, ClipboardCheck, ChevronDown, ChevronRight, Circle, LogOut } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import logo from '../../assets/logo.png';
+import { useAuth } from '../../context/AuthContext';
 
 const navigation = [
     { name: 'Dashboard', href: '/app', icon: LayoutDashboard },
@@ -27,6 +28,7 @@ const standardSubItems = [
 
 export function Sidebar() {
     const location = useLocation();
+    const { user, profile, signOut } = useAuth();
     const [isStandardOpen, setIsStandardOpen] = useState(false);
 
     // Auto-open standard menu if active
@@ -40,7 +42,7 @@ export function Sidebar() {
         <div className="flex h-full w-72 flex-col border-r border-slate-200 bg-white shadow-sm">
             {/* Logo Section */}
             <div className="flex h-20 items-center border-b border-slate-200 px-6">
-                <div className="flex items-center gap-4">
+                <Link to="/" className="flex items-center gap-4 hover:opacity-80 transition-opacity">
                     {/* Icon - Cropped from logo image */}
                     <div className="relative h-[72px] w-[60px] overflow-hidden shrink-0">
                         <img
@@ -58,7 +60,7 @@ export function Sidebar() {
                             MARINE LOGISTICS
                         </p>
                     </div>
-                </div>
+                </Link>
             </div>
 
             {/* Navigation */}
@@ -140,14 +142,25 @@ export function Sidebar() {
 
             {/* User Profile */}
             <div className="border-t border-slate-200 p-4">
-                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 transition-all duration-200 hover:border-accent hover:bg-white">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-dark text-sm font-bold text-white shadow-sm">
-                        US
+                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-accent to-accent-dark text-sm font-bold text-white shadow-sm shrink-0">
+                        {profile?.full_name?.charAt(0) || user?.email?.charAt(0).toUpperCase() || 'U'}
                     </div>
-                    <div className="flex-1 overflow-hidden">
-                        <p className="truncate text-sm font-semibold text-slate-900">User Profile</p>
-                        <p className="truncate text-xs text-slate-500">Operator</p>
+                    <div className="flex-1 overflow-hidden min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                            {profile?.full_name || user?.email?.split('@')[0] || 'User'}
+                        </p>
+                        <p className="truncate text-xs text-slate-500 capitalize">
+                            {profile?.role || 'User'}
+                        </p>
                     </div>
+                    <button
+                        onClick={signOut}
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
+                        title="Log Out"
+                    >
+                        <LogOut className="h-5 w-5" />
+                    </button>
                 </div>
             </div>
         </div>

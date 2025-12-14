@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { Ship, Lock, Mail, ArrowRight, AlertCircle, Building, User, Briefcase } from 'lucide-react';
+import { Ship, Lock, Mail, ArrowRight, AlertCircle, Building, User, Briefcase, Eye, EyeOff } from 'lucide-react';
 
 export function SignUpPage() {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         email: '',
         password: '',
+        confirmPassword: '',
         fullName: '',
         companyName: '',
         role: 'company' // default role
     });
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -20,11 +22,17 @@ export function SignUpPage() {
         setLoading(true);
         setError(null);
 
+        if (formData.password !== formData.confirmPassword) {
+            setError('Passwords do not match');
+            setLoading(false);
+            return;
+        }
+
         try {
             if (!supabase) throw new Error('Supabase client not initialized');
 
             // 1. Sign up with Supabase Auth
-            const { data: { user }, error: authError } = await supabase.auth.signUp({
+            const { data: { user, session }, error: authError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: formData.password,
             });
@@ -32,10 +40,10 @@ export function SignUpPage() {
             if (authError) throw authError;
 
             if (user) {
-                // 2. Create Profile entry
+                // 2. Create Profile entry (Upsert to avoid duplicate key errors if trigger exists)
                 const { error: profileError } = await supabase
                     .from('profiles')
-                    .insert([
+                    .upsert([
                         {
                             id: user.id,
                             email: formData.email,
@@ -45,10 +53,19 @@ export function SignUpPage() {
                         }
                     ]);
 
-                if (profileError) throw profileError;
+                if (profileError) {
+                    console.error('Profile creation failed:', profileError);
+                    // Continue anyway as auth succeeded, but warn user
+                }
 
                 // Success
-                navigate('/');
+                // Check if email confirmation is required (no session)
+                if (!session) {
+                    alert('Registration successful! Please check your email to confirm your account.');
+                    navigate('/login');
+                } else {
+                    navigate('/app');
+                }
             }
         } catch (err: any) {
             setError(err.message || 'Failed to sign up');
@@ -136,13 +153,38 @@ export function SignUpPage() {
                                     <Lock className="h-5 w-5" />
                                 </div>
                                 <input
-                                    type="password"
+                                    type={showPassword ? 'text' : 'password'}
                                     required
-                                    className="block w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    className="block w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-10 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                     placeholder="••••••••"
                                     minLength={6}
                                     value={formData.password}
                                     onChange={e => setFormData({ ...formData, password: e.target.value })}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                                >
+                                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Confirm Password</label>
+                            <div className="relative">
+                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                                    <Lock className="h-5 w-5" />
+                                </div>
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    required
+                                    className="block w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                    placeholder="••••••••"
+                                    minLength={6}
+                                    value={formData.confirmPassword}
+                                    onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
                                 />
                             </div>
                         </div>

@@ -5,10 +5,13 @@ import { Ship, ShipStatus } from '../../types/models';
 interface AddShipModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onAdd: (ship: Omit<Ship, 'id'>) => void;
+    onAdd: (ship: Omit<Ship, 'id'>) => Promise<void>;
+    onUpdate?: (id: string, ship: Partial<Ship>) => Promise<void>;
+    initialData?: Ship | null;
 }
 
-export function AddShipModal({ isOpen, onClose, onAdd }: AddShipModalProps) {
+export function AddShipModal({ isOpen, onClose, onAdd, onUpdate, initialData }: AddShipModalProps) {
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -17,7 +20,7 @@ export function AddShipModal({ isOpen, onClose, onAdd }: AddShipModalProps) {
     const [formData, setFormData] = useState<Omit<Ship, 'id'>>({
         name: '',
         type: 'VLCC',
-        status: 'Waiting', // Default status from new model
+        status: 'Waiting',
         location: '',
         destination: '',
         eta: '',
@@ -25,6 +28,30 @@ export function AddShipModal({ isOpen, onClose, onAdd }: AddShipModalProps) {
         cargo: 'N/A',
         charterer: 'Spot'
     });
+
+    // Reset or Populate form when modal opens
+    React.useEffect(() => {
+        if (isOpen) {
+            if (initialData) {
+                const { id, created_at, ...rest } = initialData;
+                setFormData(rest);
+                setUploadSuccess(false);
+            } else {
+                setFormData({
+                    name: '',
+                    type: 'VLCC',
+                    status: 'Waiting',
+                    location: '',
+                    destination: '',
+                    eta: '',
+                    speed: 0,
+                    cargo: 'N/A',
+                    charterer: 'Spot'
+                });
+                setUploadSuccess(false);
+            }
+        }
+    }, [isOpen, initialData]);
 
     if (!isOpen) return null;
 
@@ -63,81 +90,106 @@ export function AddShipModal({ isOpen, onClose, onAdd }: AddShipModalProps) {
                 type: 'Aframax', // Mock extracted data
                 cargo: 'Crude Oil',
                 location: 'Generic Port',
+                // Mock Q88 V6 Data
+                imo_number: '9123456',
+                flag: 'Marshall Islands',
+                dwt: 105000,
+                built_year: 2018,
+                loa: 245.5,
+                beam: 42.0,
+                max_draft: 14.8
             }));
             setIsProcessing(false);
             setUploadSuccess(true);
         }, 1500);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onAdd(formData);
-        onClose();
+        try {
+            setIsSubmitting(true);
+            if (initialData && onUpdate) {
+                await onUpdate(initialData.id, formData);
+            } else {
+                await onAdd(formData);
+            }
+            onClose();
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
                 <div className="flex items-center justify-between p-6 border-b border-slate-100">
                     <div>
-                        <h2 className="text-xl font-bold text-slate-900">Add New Vessel</h2>
-                        <p className="text-sm text-slate-500">Enter vessel details or upload Q88</p>
+                        <h2 className="text-xl font-bold text-slate-900">{initialData ? 'Edit Vessel' : 'Add New Vessel'}</h2>
+                        <p className="text-sm text-slate-500">{initialData ? 'Update vessel details' : 'Enter vessel details or upload Q88'}</p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
                         <X className="h-5 w-5 text-slate-400" />
                     </button>
                 </div>
 
-                <div className="p-6 space-y-6">
-                    {/* Q88 Upload Area */}
-                    <div
-                        onClick={() => fileInputRef.current?.click()}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        className={`
+                <div className="p-6 space-y-6 overflow-y-auto">
+                    {/* Q88 Upload Area - Only show in Add Mode */
+                        !initialData && (
+                            <div
+                                onClick={() => fileInputRef.current?.click()}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                className={`
                             relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200
                             ${isDragging ? 'border-accent bg-accent/5' : 'border-slate-200 hover:border-accent/50 hover:bg-slate-50'}
                             ${uploadSuccess ? 'bg-emerald-50 border-emerald-200' : ''}
                         `}
-                    >
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            className="hidden"
-                            accept=".pdf,.doc,.docx"
-                            onChange={handleFileSelect}
-                        />
+                            >
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    accept=".pdf,.doc,.docx"
+                                    onChange={handleFileSelect}
+                                />
 
-                        {isProcessing ? (
-                            <div className="flex flex-col items-center gap-3">
-                                <Loader2 className="h-10 w-10 text-accent animate-spin" />
-                                <p className="font-medium text-slate-900">Analyzing Q88 document...</p>
+                                {isProcessing ? (
+                                    <div className="flex flex-col items-center gap-3">
+                                        <Loader2 className="h-10 w-10 text-accent animate-spin" />
+                                        <p className="font-medium text-slate-900">Analyzing Q88 document...</p>
+                                    </div>
+                                ) : uploadSuccess ? (
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                                            <Check className="h-6 w-6 text-emerald-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-emerald-900">Data Extracted Successfully</p>
+                                            <p className="text-sm text-emerald-600">Form has been auto-populated</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
+                                            <Upload className="h-5 w-5 text-slate-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-slate-900">Drop Q88 document here</p>
+                                            <p className="text-sm text-slate-500">or click to browse files</p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        ) : uploadSuccess ? (
-                            <div className="flex flex-col items-center gap-3">
-                                <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                                    <Check className="h-6 w-6 text-emerald-600" />
-                                </div>
-                                <div>
-                                    <p className="font-medium text-emerald-900">Data Extracted Successfully</p>
-                                    <p className="text-sm text-emerald-600">Form has been auto-populated</p>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center gap-3">
-                                <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
-                                    <Upload className="h-5 w-5 text-slate-600" />
-                                </div>
-                                <div>
-                                    <p className="font-medium text-slate-900">Drop Q88 document here</p>
-                                    <p className="text-sm text-slate-500">or click to browse files</p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                        )
+                    }
 
-                    <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-6">
+                    }
+
+                    <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Form fields remain same */}
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700">Vessel Name</label>
                             <input
@@ -149,6 +201,7 @@ export function AddShipModal({ isOpen, onClose, onAdd }: AddShipModalProps) {
                                 placeholder="e.g. MT Ocean Queen"
                             />
                         </div>
+                        {/* ... other inputs ... */}
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-700">Type</label>
                             <select
@@ -196,16 +249,97 @@ export function AddShipModal({ isOpen, onClose, onAdd }: AddShipModalProps) {
                                 placeholder="e.g. Indian Ocean"
                             />
                         </div>
+
+                        {/* Q88 V6 Technical Details */}
+                        <div className="col-span-2 border-t border-slate-100 my-2 pt-4">
+                            <h3 className="text-sm font-semibold text-slate-900 mb-4">Technical Details (Q88)</h3>
+                        </div>
+
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700">Cargo</label>
+                            <label className="text-sm font-medium text-slate-700">IMO Number</label>
                             <input
                                 type="text"
-                                value={formData.cargo || ''}
-                                onChange={e => setFormData({ ...formData, cargo: e.target.value })}
+                                value={formData.imo_number || ''}
+                                onChange={e => setFormData({ ...formData, imo_number: e.target.value })}
                                 className="w-full rounded-lg border-slate-200 focus:border-accent focus:ring-accent"
-                                placeholder="e.g. Crude Oil"
+                                placeholder="e.g. 9123456"
                             />
                         </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Flag</label>
+                            <input
+                                type="text"
+                                value={formData.flag || ''}
+                                onChange={e => setFormData({ ...formData, flag: e.target.value })}
+                                className="w-full rounded-lg border-slate-200 focus:border-accent focus:ring-accent"
+                                placeholder="e.g. Marshall Islands"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Year Built</label>
+                            <input
+                                type="number"
+                                value={formData.built_year || ''}
+                                onChange={e => setFormData({ ...formData, built_year: parseInt(e.target.value) || undefined })}
+                                className="w-full rounded-lg border-slate-200 focus:border-accent focus:ring-accent"
+                                placeholder="e.g. 2026"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">DWT (mt)</label>
+                            <input
+                                type="number"
+                                step="0.1"
+                                value={formData.dwt || ''}
+                                onChange={e => setFormData({ ...formData, dwt: parseFloat(e.target.value) || undefined })}
+                                className="w-full rounded-lg border-slate-200 focus:border-accent focus:ring-accent"
+                                placeholder="e.g. 300000"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">LOA (m)</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                value={formData.loa || ''}
+                                onChange={e => setFormData({ ...formData, loa: parseFloat(e.target.value) || undefined })}
+                                className="w-full rounded-lg border-slate-200 focus:border-accent focus:ring-accent"
+                                placeholder="Length Overall"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Beam (m)</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                value={formData.beam || ''}
+                                onChange={e => setFormData({ ...formData, beam: parseFloat(e.target.value) || undefined })}
+                                className="w-full rounded-lg border-slate-200 focus:border-accent focus:ring-accent"
+                                placeholder="Beam"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Max Draft (m)</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                value={formData.max_draft || ''}
+                                onChange={e => setFormData({ ...formData, max_draft: parseFloat(e.target.value) || undefined })}
+                                className="w-full rounded-lg border-slate-200 focus:border-accent focus:ring-accent"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-700">Cubic Cap (m³)</label>
+                            <input
+                                type="number"
+                                step="1"
+                                value={formData.cubic_capacity || ''}
+                                onChange={e => setFormData({ ...formData, cubic_capacity: parseFloat(e.target.value) || undefined })}
+                                className="w-full rounded-lg border-slate-200 focus:border-accent focus:ring-accent"
+                                placeholder="98%"
+                            />
+                        </div>
+
                     </form>
                 </div>
 
@@ -219,12 +353,14 @@ export function AddShipModal({ isOpen, onClose, onAdd }: AddShipModalProps) {
                     </button>
                     <button
                         onClick={handleSubmit}
-                        className="px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-sm shadow-accent/20"
+                        disabled={isSubmitting}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent hover:bg-accent-dark rounded-lg transition-colors shadow-sm shadow-accent/20 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                        Add Vessel
+                        {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {isSubmitting ? (initialData ? 'Updating...' : 'Adding...') : (initialData ? 'Update Vessel' : 'Add Vessel')}
                     </button>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
