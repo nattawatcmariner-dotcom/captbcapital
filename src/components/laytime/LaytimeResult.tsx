@@ -1,9 +1,9 @@
 import React from 'react';
-import { LaytimeResult } from '../../types/laytime';
+import { LaytimeResult as LaytimeResultModel } from '../../types/laytime';
 import { Calculator, DollarSign, Clock, AlertCircle } from 'lucide-react';
 
 interface Props {
-    result: LaytimeResult | null;
+    result: LaytimeResultModel | null;
 }
 
 export function LaytimeResult({ result }: Props) {
