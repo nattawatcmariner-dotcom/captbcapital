@@ -2,7 +2,7 @@ import { Ship } from '../types/models';
 import { delay } from './api';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-const TIMEOUT_MS = 15000;
+const TIMEOUT_MS = 30000; // 30 seconds
 
 const fetchWithTimeout = async <T>(promise: Promise<{ data: T | null, error: any }>): Promise<T> => {
     let timeoutId: NodeJS.Timeout;
