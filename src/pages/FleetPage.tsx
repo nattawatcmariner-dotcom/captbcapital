@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { ShipList } from '../components/ships/ShipList';
 import { AddShipModal } from '../components/ships/AddShipModal';
 import { shipService } from '../services/shipService';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { Ship } from '../types/models';
-import { Plus, Ship as ShipIcon, Loader2, LayoutGrid, List } from 'lucide-react';
+import { Plus, Ship as ShipIcon, Loader2, LayoutGrid, List, Wifi, WifiOff } from 'lucide-react';
 
 export function FleetPage() {
     const [ships, setShips] = useState<Ship[]>([]);
@@ -74,6 +75,24 @@ export function FleetPage() {
                     <p className="mt-1 md:mt-2 text-slate-600">Manage your vessel fleet and details</p>
                 </div>
                 <div className="flex items-center gap-3 self-start md:self-auto">
+                    {/* Connection Status Indicator */}
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${isSupabaseConfigured()
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}>
+                        {isSupabaseConfigured() ? (
+                            <>
+                                <Wifi className="h-3 w-3" />
+                                <span className="hidden sm:inline">Connected</span>
+                            </>
+                        ) : (
+                            <>
+                                <WifiOff className="h-3 w-3" />
+                                <span className="hidden sm:inline">Mock Mode</span>
+                            </>
+                        )}
+                    </div>
+
                     <div className="flex items-center bg-slate-100 rounded-lg p-1 border border-slate-200">
                         <button
                             onClick={() => setViewMode('grid')}

@@ -17,8 +17,8 @@ create table public.ships (
 alter table public.ships enable row level security;
 
 -- Create policy to allow all actions for authenticated users
-create policy "Enable all access for authenticated users" on public.ships
-  for all using (auth.role() = 'authenticated');
+create policy "Enable all access for details" on public.ships
+  for all using (true);
 
 -- Create policy to allow read access for everyone (optional, if you want public to see fleet)
 -- create policy "Enable read access for all users" on public.ships for select using (true);

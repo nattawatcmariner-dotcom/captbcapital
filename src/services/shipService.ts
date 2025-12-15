@@ -2,7 +2,7 @@ import { Ship } from '../types/models';
 import { delay } from './api';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-const TIMEOUT_MS = 5000;
+const TIMEOUT_MS = 15000;
 
 const fetchWithTimeout = async <T>(promise: Promise<{ data: T | null, error: any }>): Promise<T> => {
     let timeoutId: NodeJS.Timeout;
@@ -88,8 +88,9 @@ export const shipService = {
                     supabase!.from('ships').insert(ship).select().single() as unknown as Promise<any>
                 );
                 return result as Ship;
-            } catch (error) {
+            } catch (error: any) {
                 console.warn('Supabase write failed/timed out. Falling back to local mode.', error);
+                alert(`DEBUG: Supabase Write Failed! \nReason: ${error.message || JSON.stringify(error)} \n\nFalling back to temporary offline mode.`);
                 // Fallback continues below...
             }
         }
@@ -108,8 +109,9 @@ export const shipService = {
                     supabase!.from('ships').update(updates).eq('id', id).select().single() as unknown as Promise<any>
                 );
                 return result as Ship;
-            } catch (error) {
+            } catch (error: any) {
                 console.warn('Supabase update failed. Falling back to local mode.', error);
+                alert(`DEBUG: Supabase Update Failed! \nReason: ${error.message || JSON.stringify(error)}`);
             }
         }
 
