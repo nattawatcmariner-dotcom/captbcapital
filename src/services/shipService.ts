@@ -22,13 +22,7 @@ const fetchWithTimeout = async <T>(promise: Promise<{ data: T | null, error: any
 };
 
 // Mock Data (Fallback)
-const mockShips: Ship[] = [
-    { id: '1', name: 'MT OCEAN QUEEN', type: 'VLCC', status: 'In Transit', location: 'Indian Ocean', destination: 'Ningbo, CN', eta: '2025-12-15', speed: 12.5, cargo: 'Crude Oil', charterer: 'Unipec' },
-    { id: '2', name: 'MT PACIFIC STAR', type: 'Suezmax', status: 'Loading', location: 'Ras Tanura, SA', destination: 'Singapore, SG', eta: '2025-12-20', speed: 0, cargo: 'Crude Oil', charterer: 'Shell' },
-    { id: '3', name: 'MT ATLANTIC ROSE', type: 'Aframax', status: 'Discharging', location: 'Rotterdam, NL', destination: 'Antwerp, BE', eta: '2025-12-05', speed: 0, cargo: 'Fuel Oil', charterer: 'BP' },
-    { id: '4', name: 'MT NORDIC SPIRIT', type: 'VLCC', status: 'Waiting', location: 'Fujairah, AE', destination: 'Orders', eta: '-', speed: 0, cargo: 'Empty', charterer: 'Spot' },
-    { id: '5', name: 'MT EASTERN DRAGON', type: 'MR', status: 'In Transit', location: 'South China Sea', destination: 'Manila, PH', eta: '2025-12-08', speed: 13.0, cargo: 'Gasoline', charterer: 'Petron' },
-];
+const mockShips: Ship[] = [];
 
 export const shipService = {
     getAllShips: async (): Promise<Ship[]> => {
