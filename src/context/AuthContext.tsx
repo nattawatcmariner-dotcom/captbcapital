@@ -60,18 +60,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setSession(session);
             setUser(session?.user ?? null);
 
-            // OPTIMIZATION: Stop loading immediately if we have a user.
-            // Profile can load in the background.
             if (session?.user) {
-                setLoading(false);
-                fetchProfile(session.user.id); // Run in background
+                // Wait for profile to avoid "Blank Screen" race conditions in UI
+                // But relying on SQL optimization for speed now.
+                await fetchProfile(session.user.id);
             } else {
                 setProfile(null);
                 setLoading(false);
             }
         });
 
-        // 3. Failsafe timeout (Reduced to 2s)
+        // 3. Failsafe timeout (Keep at 2s for speed)
         const timer = setTimeout(() => {
             setLoading(current => {
                 if (current) {
