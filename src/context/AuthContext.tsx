@@ -60,24 +60,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setSession(session);
             setUser(session?.user ?? null);
 
+            // OPTIMIZATION: Stop loading immediately if we have a user.
+            // Profile can load in the background.
             if (session?.user) {
-                await fetchProfile(session.user.id);
+                setLoading(false);
+                fetchProfile(session.user.id); // Run in background
             } else {
                 setProfile(null);
                 setLoading(false);
             }
         });
 
-        // 3. Failsafe timeout
+        // 3. Failsafe timeout (Reduced to 2s)
         const timer = setTimeout(() => {
             setLoading(current => {
                 if (current) {
-                    console.warn('Auth loading timed out (5s), forcing completion');
+                    console.warn('Auth loading timed out, forcing completion');
                     return false;
                 }
                 return current;
             });
-        }, 5000);
+        }, 2000);
 
         return () => {
             subscription.unsubscribe();
