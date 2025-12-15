@@ -37,7 +37,7 @@ export const shipService = {
             try {
                 // Try fetching with 5s timeout
                 return await fetchWithTimeout(
-                    supabase!.from('ships').select('*').order('created_at', { ascending: false })
+                    supabase!.from('ships').select('*').order('created_at', { ascending: false }) as unknown as Promise<any>
                 );
             } catch (error) {
                 console.warn('Supabase fetch failed or timed out, falling back to mock data:', error);
@@ -85,7 +85,7 @@ export const shipService = {
                 console.log('Adding ship to Supabase...');
                 // Wrap insert in timeout
                 const result = await fetchWithTimeout(
-                    supabase!.from('ships').insert(ship).select().single()
+                    supabase!.from('ships').insert(ship).select().single() as unknown as Promise<any>
                 );
                 return result as Ship;
             } catch (error) {
@@ -105,7 +105,7 @@ export const shipService = {
             try {
                 console.log('Updating ship in Supabase...');
                 const result = await fetchWithTimeout(
-                    supabase!.from('ships').update(updates).eq('id', id).select().single()
+                    supabase!.from('ships').update(updates).eq('id', id).select().single() as unknown as Promise<any>
                 );
                 return result as Ship;
             } catch (error) {
@@ -127,7 +127,7 @@ export const shipService = {
             try {
                 // Wrap delete in timeout to prevent hang
                 await fetchWithTimeout(
-                    supabase!.from('ships').delete().eq('id', id)
+                    supabase!.from('ships').delete().eq('id', id) as unknown as Promise<any>
                 );
                 return;
             } catch (error) {

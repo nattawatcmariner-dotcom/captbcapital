@@ -186,8 +186,6 @@ export function AddShipModal({ isOpen, onClose, onAdd, onUpdate, initialData }: 
                         )
                     }
 
-                    }
-
                     <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Form fields remain same */}
                         <div className="space-y-2">

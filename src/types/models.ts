@@ -2,6 +2,7 @@ export type ShipStatus = 'In Transit' | 'Loading' | 'Discharging' | 'Waiting' | 
 
 export interface Ship {
     id: string;
+    created_at?: string;
     name: string;
     type: string;
     status: ShipStatus;
