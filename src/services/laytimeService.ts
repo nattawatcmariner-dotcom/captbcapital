@@ -22,9 +22,11 @@ export const laytimeService = {
         const disconnectEvent = sortedEvents.find(e => e.type === 'CARGO_HOSES_DISCONNECTED');
         const documentsEvent = sortedEvents.find(e => e.type === 'DOCUMENTS_ON_BOARD');
 
+        const completedEvent = sortedEvents.find(e => e.type === 'COMPLETED_LOADING');
         // Practical end of laytime: Hoses Disconnected (most tanker CPs) 
         // Some CPs allow until Documents on Board, but Hoses is safer default.
-        const endEvent = documentsEvent || disconnectEvent;
+        // Fallback: If no disconnect/docs, use Completed Loading or just the last event.
+        const endEvent = documentsEvent || disconnectEvent || completedEvent || sortedEvents[sortedEvents.length - 1];
 
         if (!norEvent || !endEvent) {
             // Not enough data to calculate

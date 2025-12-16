@@ -1,210 +1,166 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
-*/
-import { GoogleGenAI, Modality } from "@google/genai";
-import { AspectRatio, ComplexityLevel, VisualStyle, ResearchResult, SearchResultItem, Language } from "../types";
+import { GoogleGenAI } from "@google/genai";
+import { TimeSheetEvent } from "../types/laytime";
 
-// Create a fresh client for every request to ensure the latest API key from process.env.API_KEY is used
+// Ensure we access the environment variable correctly for Vite
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
 const getAi = () => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
-};
-
-// Updated to use 'gemini-3-pro-image-preview' for all operations including search grounding and image generation as requested
-const TEXT_MODEL = 'gemini-3-pro-preview';
-const IMAGE_MODEL = 'gemini-3-pro-image-preview';
-const EDIT_MODEL = 'gemini-3-pro-image-preview';
-
-const getLevelInstruction = (level: ComplexityLevel): string => {
-  switch (level) {
-    case 'Elementary':
-      return "Target Audience: Elementary School (Ages 6-10). Style: Bright, simple, fun. Use large clear icons and very minimal text labels.";
-    case 'High School':
-      return "Target Audience: High School. Style: Standard Textbook. Clean lines, clear labels, accurate maps or diagrams. Avoid cartoony elements.";
-    case 'College':
-      return "Target Audience: University. Style: Academic Journal. High detail, data-rich, precise cross-sections or complex schematics.";
-    case 'Expert':
-      return "Target Audience: Industry Expert. Style: Technical Blueprint/Schematic. Extremely dense detail, monochrome or technical coloring, precise annotations.";
-    default:
-      return "Target Audience: General Public. Style: Clear and engaging.";
+  if (!API_KEY) {
+    console.error("VITE_GEMINI_API_KEY is not set in environment variables");
+    throw new Error("Gemini API Key is missing. Please add VITE_GEMINI_API_KEY to your .env file.");
   }
+  return new GoogleGenAI({ apiKey: API_KEY });
 };
 
-const getStyleInstruction = (style: VisualStyle): string => {
-  switch (style) {
-    case 'Minimalist': return "Aesthetic: Bauhaus Minimalist. Flat vector art, limited color palette (2-3 colors), reliance on negative space and simple geometric shapes.";
-    case 'Realistic': return "Aesthetic: Photorealistic Composite. Cinematic lighting, 8k resolution, highly detailed textures. Looks like a photograph.";
-    case 'Cartoon': return "Aesthetic: Educational Comic. Vibrant colors, thick outlines, expressive cel-shaded style.";
-    case 'Vintage': return "Aesthetic: 19th Century Scientific Lithograph. Engraving style, sepia tones, textured paper background, fine hatch lines.";
-    case 'Futuristic': return "Aesthetic: Cyberpunk HUD. Glowing neon blue/cyan lines on dark background, holographic data visualization, 3D wireframes.";
-    case '3D Render': return "Aesthetic: 3D Isometric Render. Claymorphism or high-gloss plastic texture, studio lighting, soft shadows, looks like a physical model.";
-    case 'Sketch': return "Aesthetic: Da Vinci Notebook. Ink on parchment sketch, handwritten annotations style, rough but accurate lines.";
-    default: return "Aesthetic: High-quality digital scientific illustration. Clean, modern, highly detailed.";
-  }
-};
+const MODELS_TO_TRY = [
+  'gemini-2.0-flash-lite-preview-02-05', // Confirmed Available: Lite
+  'gemini-2.5-flash',                    // Confirmed Available: Newest
+  'gemini-2.0-flash-exp',                // Confirmed Available: Exp
+  'gemini-1.5-flash'                     // Fallback
+];
 
-export const researchTopicForPrompt = async (
-  topic: string, 
-  level: ComplexityLevel, 
-  style: VisualStyle,
-  language: Language
-): Promise<ResearchResult> => {
-  
-  const levelInstr = getLevelInstruction(level);
-  const styleInstr = getStyleInstruction(style);
+const MODEL_NAME = MODELS_TO_TRY[0];
 
-  const systemPrompt = `
-    You are an expert visual researcher.
-    Your goal is to research the topic: "${topic}" and create a plan for an infographic.
-    
-    **IMPORTANT: Use the Google Search tool to find the most accurate, up-to-date information about this topic.**
-    
-    Context:
-    ${levelInstr}
-    ${styleInstr}
-    Language: ${language}
-    
-    Please provide your response in the following format EXACTLY:
-    
-    FACTS:
-    - [Fact 1]
-    - [Fact 2]
-    - [Fact 3]
-    
-    IMAGE_PROMPT:
-    [A highly detailed image generation prompt describing the visual composition, colors, and layout for the infographic. Do not include citations in the prompt.]
-  `;
+// Debug: Log key status (safe)
+if (API_KEY) {
+  console.log("Gemini Service Initialized. Key prefix:", API_KEY.substring(0, 5) + "...");
+}
 
-  const response = await getAi().models.generateContent({
-    model: TEXT_MODEL,
-    contents: systemPrompt,
-    config: {
-      tools: [{ googleSearch: {} }],
-    },
-  });
-
-  const text = response.text || "";
-  
-  // Parse Facts
-  const factsMatch = text.match(/FACTS:\s*([\s\S]*?)(?=IMAGE_PROMPT:|$)/i);
-  const factsRaw = factsMatch ? factsMatch[1].trim() : "";
-  const facts = factsRaw.split('\n')
-    .map(f => f.replace(/^-\s*/, '').trim())
-    .filter(f => f.length > 0)
-    .slice(0, 5);
-
-  // Parse Prompt
-  const promptMatch = text.match(/IMAGE_PROMPT:\s*([\s\S]*?)$/i);
-  const imagePrompt = promptMatch ? promptMatch[1].trim() : `Create a detailed infographic about ${topic}. ${levelInstr} ${styleInstr}`;
-
-  // Extract Grounding (Search Results)
-  const searchResults: SearchResultItem[] = [];
-  const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-  
-  if (chunks) {
-    chunks.forEach(chunk => {
-      if (chunk.web?.uri && chunk.web?.title) {
-        searchResults.push({
-          title: chunk.web.title,
-          url: chunk.web.uri
-        });
-      }
-    });
-  }
-
-  // Remove duplicates based on URL
-  const uniqueResults = Array.from(new Map(searchResults.map(item => [item.url, item])).values());
-
-  return {
-    imagePrompt: imagePrompt,
-    facts: facts,
-    searchResults: uniqueResults
-  };
-};
-
-export const generateInfographicImage = async (prompt: string): Promise<string> => {
-  // Use Gemini 3 Pro Image Preview for generation
-  const response = await getAi().models.generateContent({
-    model: IMAGE_MODEL,
-    contents: {
-      parts: [{ text: prompt }]
-    },
-    config: {
-      responseModalities: [Modality.IMAGE],
+export const debugGeminiConnection = async (): Promise<string> => {
+  if (!API_KEY) return "No API Key found.";
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}`);
+    if (!response.ok) {
+      const err = await response.json();
+      return `API Error: ${response.status} - ${JSON.stringify(err)}`;
     }
-  });
-
-  const part = response.candidates?.[0]?.content?.parts?.[0];
-  if (part && part.inlineData && part.inlineData.data) {
-    return `data:image/png;base64,${part.inlineData.data}`;
+    const data = await response.json();
+    const models = (data.models || [])
+      .map((m: any) => m.name.replace('models/', ''))
+      .filter((n: string) => n.includes('gemini'));
+    return `Available Models: ${models.join(', ')}`;
+  } catch (e: any) {
+    return `Network Error: ${e.message}`;
   }
-  throw new Error("Failed to generate image");
 };
 
-export const verifyInfographicAccuracy = async (
-  imageBase64: string, 
-  topic: string,
-  level: ComplexityLevel,
-  style: VisualStyle,
-  language: Language
-): Promise<{ isAccurate: boolean; critique: string }> => {
-  
-  // Bypassing verification to send straight to image generation
-  return {
-    isAccurate: true,
-    critique: "Verification bypassed."
-  };
+
+/**
+ * Parses an image of a Statement of Facts / Time Sheet and extracts events.
+ */
+export const parseTimeSheetImage = async (file: File): Promise<TimeSheetEvent[]> => {
+  const ai = getAi();
+  const base64Data = await fileToGenerativePart(file);
+
+  let lastError: any;
+
+  for (const modelName of MODELS_TO_TRY) {
+    try {
+      console.log(`Attempting to parse with model: ${modelName}`);
+
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: {
+          parts: [
+            { inlineData: { mimeType: file.type, data: base64Data } },
+            {
+              text: `
+              You are an expert Maritime Laytime Analyst.
+              Analyze the attached image of a "Statement of Facts" or "Time Sheet".
+              
+              Extract ALL events found in the document chronologically into a JSON list.
+              
+              CRITICAL: You must identify the "End of Laytime" events.
+              Map the text descriptions to the following strict types:
+              - 'NOR_TENDERED': Notice of Readiness, NOR Tendered
+              - 'ANCHORED': Anchored, Arrived at Pilot Station
+              - 'BERTHTED': All Fast, Berthed, Gangway Down
+              - 'COMMENCED_LOADING': Commenced Loading/Discharging, Hose Connected
+              - 'COMPLETED_LOADING': Completed Loading/Discharging
+              - 'CARGO_HOSES_DISCONNECTED': Hoses Disconnected, Arms Disconnected
+              - 'DOCUMENTS_ON_BOARD': Documents on Board, Cargo Docs, Sailing, Cast Off, Unberthed
+              - 'RAIN_DELAY': Rain, Bad Weather (Start/Stop pairs if possible, or single events)
+              - 'OTHER': Any other event like "Pilot On Board", "Tug Fast"
+
+              For each event object:
+              - type: The strict Enum value from above.
+              - timestamp: ISO 8601 format (YYYY-MM-DDTHH:mm:ss). Infer year if missing.
+              - description: Original text from image.
+              
+              Return ONLY valid JSON.
+              [{"type": "NOR_TENDERED", "timestamp": "...", "description": "..."}]
+            ` }
+          ]
+        }
+      });
+
+      const text = response.text || "[]";
+      // Sanitize JSON
+      const jsonBlock = text.match(/```json\s*([\s\S]*?)\s*```/);
+      const jsonString = jsonBlock ? jsonBlock[1] : text;
+
+      const events = JSON.parse(jsonString);
+
+      return events.map((e: any, index: number) => ({
+        id: `extracted-${Date.now()}-${index}`,
+        type: e.type,
+        timestamp: e.timestamp,
+        description: e.description,
+        remarks: `Extracted by AI (${modelName})`
+      }));
+
+    } catch (error: any) {
+      console.warn(`Failed with model ${modelName}:`, error.message);
+      lastError = error;
+      // Continue to next model
+      continue;
+    }
+  }
+
+  // If we get here, all models failed
+  console.error("All models failed. Last error:", lastError);
+  throw lastError;
 };
 
-export const fixInfographicImage = async (currentImageBase64: string, correctionPrompt: string): Promise<string> => {
-  const cleanBase64 = currentImageBase64.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
-
+/**
+ * Analyzes the Laytime Calculation Result to provide insights.
+ */
+export const analyzeLaytimeResult = async (result: any): Promise<string> => {
+  const ai = getAi();
   const prompt = `
-    Edit this image. 
-    Goal: Simplify and Fix.
-    Instruction: ${correctionPrompt}.
-    Ensure the design is clean and any text is large and legible.
-  `;
+    Analyze this Laytime Calculation Result:
+    ${JSON.stringify(result, null, 2)}
+    
+    Explain the result in simple maritime terms.
+    - Why is there Demurrage or Despatch?
+    - Highlight the biggest time loss (if any).
+    - Maximum 3 sentences.
+    `;
 
-  const response = await getAi().models.generateContent({
-    model: EDIT_MODEL,
-    contents: {
-      parts: [
-        { inlineData: { mimeType: 'image/jpeg', data: cleanBase64 } },
-        { text: prompt }
-      ]
-    },
-    config: {
-      responseModalities: [Modality.IMAGE],
-    }
-  });
-
-  const part = response.candidates?.[0]?.content?.parts?.[0];
-  if (part && part.inlineData && part.inlineData.data) {
-    return `data:image/png;base64,${part.inlineData.data}`;
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: { parts: [{ text: prompt }] }
+    });
+    return response.text || "No analysis available.";
+  } catch (error) {
+    console.error("Error analyzing laytime result:", error);
+    return "Unable to generate insights at this time.";
   }
-  throw new Error("Failed to fix image");
 };
 
-export const editInfographicImage = async (currentImageBase64: string, editInstruction: string): Promise<string> => {
-  const cleanBase64 = currentImageBase64.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
-  
-  const response = await getAi().models.generateContent({
-    model: EDIT_MODEL,
-    contents: {
-      parts: [
-         { inlineData: { mimeType: 'image/jpeg', data: cleanBase64 } },
-         { text: editInstruction }
-      ]
-    },
-    config: {
-      responseModalities: [Modality.IMAGE],
-    }
+// Helper: Convert File to Base64 (strip header for Gemini SDK if needed, 
+// usually SDK handles base64 string, but @google/genai inlineData wants raw base64)
+async function fileToGenerativePart(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      // Remove data url prefix (e.g. "data:image/jpeg;base64,")
+      const base64Data = base64String.split(',')[1];
+      resolve(base64Data);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
-  
-   const part = response.candidates?.[0]?.content?.parts?.[0];
-  if (part && part.inlineData && part.inlineData.data) {
-    return `data:image/png;base64,${part.inlineData.data}`;
-  }
-  throw new Error("Failed to edit image");
-};
+}

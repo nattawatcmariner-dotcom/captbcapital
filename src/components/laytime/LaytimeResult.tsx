@@ -1,6 +1,6 @@
 import React from 'react';
 import { LaytimeResult as LaytimeResultModel } from '../../types/laytime';
-import { Calculator, DollarSign, Clock, AlertCircle } from 'lucide-react';
+import { Calculator, DollarSign, Clock, AlertCircle, Sparkles, Loader2 } from 'lucide-react';
 
 interface Props {
     result: LaytimeResultModel | null;
@@ -18,6 +18,29 @@ export function LaytimeResult({ result }: Props) {
             </div>
         );
     }
+
+    const [analysis, setAnalysis] = React.useState<string | null>(null);
+    const [isAnalyzing, setIsAnalyzing] = React.useState(false);
+
+    // Reset analysis when result changes
+    React.useEffect(() => {
+        setAnalysis(null);
+    }, [result]);
+
+    const handleAnalyze = async () => {
+        if (!result) return;
+        try {
+            setIsAnalyzing(true);
+            const { analyzeLaytimeResult } = await import('../../services/geminiService');
+            const feedback = await analyzeLaytimeResult(result);
+            setAnalysis(feedback);
+        } catch (error) {
+            console.error("Analysis failed:", error);
+            setAnalysis("Sorry, I couldn't analyze the results right now. Please check your connection or API Key.");
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
 
     const isDemurrage = result.demurrageDue > 0;
 
@@ -70,6 +93,30 @@ export function LaytimeResult({ result }: Props) {
                         </div>
                     </div>
                 </div>
+            </div>
+            <div className="p-6 border-t border-slate-100 bg-slate-50/50">
+                <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-medium text-slate-900 flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-purple-500" />
+                        AI Insights
+                    </h4>
+                    {!analysis && (
+                        <button
+                            onClick={handleAnalyze}
+                            disabled={isAnalyzing}
+                            className="text-xs px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors disabled:opacity-50 flex items-center gap-1"
+                        >
+                            {isAnalyzing && <Loader2 className="h-3 w-3 animate-spin" />}
+                            {isAnalyzing ? 'Analyzing...' : 'Ask AI'}
+                        </button>
+                    )}
+                </div>
+
+                {analysis && (
+                    <div className="text-sm text-slate-600 bg-white p-3 rounded-lg border border-purple-100 shadow-sm animate-in fade-in">
+                        <p className="leading-relaxed">{analysis}</p>
+                    </div>
+                )}
             </div>
         </div>
     );

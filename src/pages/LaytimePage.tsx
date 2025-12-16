@@ -35,8 +35,10 @@ export function LaytimePage() {
         }
     }, [terms, events]);
 
-    const handleUploadSample = async () => {
-        const sampleEvents = await laytimeService.mockParse(new File([], 'sample.pdf'));
+    const handleUploadFile = async (file: File) => {
+        // Here we simulate parsing the specific file
+        console.log("Analyzing file:", file.name);
+        const sampleEvents = await laytimeService.mockParse(file);
         setEvents(sampleEvents);
     };
 
@@ -59,7 +61,7 @@ export function LaytimePage() {
                     <TimeSheetEditor
                         events={events}
                         onEventsChange={setEvents}
-                        onUploadSample={handleUploadSample}
+                        onUploadFile={handleUploadFile}
                     />
                 </div>
 
