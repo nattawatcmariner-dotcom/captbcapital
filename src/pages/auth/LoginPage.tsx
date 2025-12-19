@@ -15,17 +15,27 @@ export function LoginPage() {
         setLoading(true);
         setError(null);
 
+        // Timeout promise to prevent infinite hanging (e.g. firewall/network issues)
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Request timed out. Please check your connection.')), 15000)
+        );
+
         try {
             if (!supabase) throw new Error('Supabase client not initialized');
 
-            const { error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
+            // Race between login and timeout
+            const { error } = await Promise.race([
+                supabase.auth.signInWithPassword({
+                    email: email.trim(),
+                    password,
+                }),
+                timeoutPromise
+            ]) as any;
 
             if (error) throw error;
             navigate('/app');
         } catch (err: any) {
+            console.error('Login error:', err);
             setError(err.message || 'Failed to sign in');
         } finally {
             setLoading(false);
